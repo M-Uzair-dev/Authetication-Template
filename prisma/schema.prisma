@@ -10,3 +10,37 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  id              String   @id @default(uuid())
+  name            String?
+  email           String   @unique
+  password        String
+  emailVerified   Boolean  @default(false)
+
+  tokens          Token[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Token {
+  id          String     @id @default(uuid())
+  userId      String
+  type        TokenType
+  tokenHash   String
+  device      String? // we will get this via:  const device = req.headers["user-agent"] || "unknown"
+  expiresAt   DateTime
+  createdAt   DateTime   @default(now())
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash]) // because we will be using be finding the token using its tokenHash
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  REFRESH_TOKEN
+}

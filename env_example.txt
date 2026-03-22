@@ -1,1 +1,2 @@
 DATABASE_URL="postgresql://postgres:uzairmanandev@localhost:5433/authtemplate"
+JWT_SECRET=YourJWTSecretComesHere12321 
