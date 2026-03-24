@@ -1,4 +1,11 @@
-DATABASE_URL="postgresql://postgres:uzairmanandev@localhost:5433/authtemplate"
-JWT_SECRET=YourJWTSecretComesHere12321 
+DATABASE_URL="postgresql://postgres:password@localhost:5432/authtemplate"
 
+# Access Token Configuration
+# 15 minutes in milliseconds (1000 * 60 * 15)
+ACCESS_TOKEN_EXPIRY=900000
+ACCESS_TOKEN_SECRET=YourAccessTokenSecretHere
 
+# Refresh Token Configuration
+# 7 days in milliseconds (1000 * 60 * 60 * 24 * 7)
+REFRESH_TOKEN_EXPIRY=604800000
+REFRESH_TOKEN_SECRET=YourRefreshTokenSecretHere

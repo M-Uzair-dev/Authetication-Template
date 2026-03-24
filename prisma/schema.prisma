@@ -29,7 +29,7 @@ model Token {
   userId      String
   type        TokenType
   tokenHash   String
-  device      String? // we will get this via:  const device = req.headers["user-agent"] || "unknown"
+  device      String? 
   expiresAt   DateTime
   createdAt   DateTime   @default(now())
 
@@ -37,6 +37,7 @@ model Token {
 
   @@index([userId])
   @@index([tokenHash]) // because we will be using be finding the token using its tokenHash
+  @@unique([userId, device, type])
 }
 
 enum TokenType {

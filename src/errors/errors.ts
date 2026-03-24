@@ -3,6 +3,7 @@ export enum errorType {
   REFRESH_TOKEN_EXPIRED,
   INVALID_CREDENTIALS,
   USER_NOT_FOUND,
+  BAD_REQUEST,
 }
 
 export class appError extends Error {

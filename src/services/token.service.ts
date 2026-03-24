@@ -1,15 +1,24 @@
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
-import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { appError } from "../errors/errors.js";
 import { errorType } from "../errors/errors.js";
 import { v4 as uuid } from "uuid";
 import type { Token } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
+const REFRESH_TOKEN_EXPIRY = parseInt(process.env.REFRESH_TOKEN_EXPIRY || "");
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
+const ACCESS_TOKEN_EXPIRY = parseInt(process.env.ACCESS_TOKEN_EXPIRY || "");
 
-if (!JWT_SECRET) throw new Error("JWT Secret is required!");
-
+if (
+  !REFRESH_TOKEN_EXPIRY ||
+  !REFRESH_TOKEN_SECRET ||
+  !ACCESS_TOKEN_SECRET ||
+  !ACCESS_TOKEN_EXPIRY
+)
+  throw new Error("JWT Secret is required!");
 type payloadType = {
   id: string;
   email: string;
@@ -20,15 +29,41 @@ type refreshTokenJWTPayload = payloadType & {
   tokenId: string;
 };
 
+type DBClient = PrismaClient | Prisma.TransactionClient;
+
+const validateDevice = (device: string): void => {
+  // device must be provided, and not be empty
+  if (!device || typeof device !== "string" || device.trim().length === 0) {
+    throw new appError(
+      400,
+      "Device identifier is required",
+      errorType.BAD_REQUEST,
+    );
+  }
+
+  // Prevent excessively long device strings
+  if (device.length > 255) {
+    throw new appError(
+      400,
+      "Device identifier is too long (max 255 characters)",
+      errorType.BAD_REQUEST,
+    );
+  }
+};
+
 const generateTokens = async (
   payload: payloadType,
   device: string,
+  db: DBClient = prisma,
 ): Promise<{
   refreshToken: string;
   accessToken: string;
 }> => {
-  const accessToken = jwt.sign(payload, JWT_SECRET, {
-    expiresIn: "15m",
+  // Validate device parameter before proceeding
+  validateDevice(device);
+
+  const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRY / 1000,
   });
 
   // accessToken is made. now here is the issue, we need to store the refresh token
@@ -49,19 +84,37 @@ const generateTokens = async (
   };
 
   // add it in the token payload
-  const refreshToken = jwt.sign(refreshTokenPayload, JWT_SECRET, {
-    expiresIn: "7d",
+  const refreshToken = jwt.sign(refreshTokenPayload, REFRESH_TOKEN_SECRET, {
+    expiresIn: REFRESH_TOKEN_EXPIRY / 1000,
   });
 
-  // then hash that token
-  const tokenHash = await bcrypt.hash(refreshToken, 10);
+  // Hash the refresh token using SHA-256 for storage in DB
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
 
-  // then use that same id to create a DB record and put the token hash inside
-  await prisma.token.create({
-    data: {
+  // Use upsert to handle the "one device, one token" logic atomically.
+  // This uses the @@unique([userId, device, type]) constraint from your schema.
+  await db.token.upsert({
+    where: {
+      userId_device_type: {
+        userId: payload.id,
+        device: device,
+        type: "REFRESH_TOKEN",
+      },
+    },
+    update: {
+      // If a record exists for this device, we overwrite it with the new token data
+      id: refreshTokenId,
+      tokenHash,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY),
+    },
+    create: {
+      // If no record exists, create a brand new one
       id: refreshTokenId,
       type: "REFRESH_TOKEN",
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY),
       device: device,
       userId: payload.id,
       tokenHash,
@@ -80,7 +133,7 @@ const verifyUser = async (
 ): Promise<string> => {
   try {
     // at first, we check the access token
-    const data = jwt.verify(accessToken, JWT_SECRET!) as payloadType;
+    const data = jwt.verify(accessToken, ACCESS_TOKEN_SECRET) as payloadType;
 
     // if access token was invalid, jwt would've thrown an error and sent us to the catch block
     // coming here means the access token is valid, so we send back the id
@@ -116,6 +169,9 @@ const verifyUser = async (
 };
 
 const generateAccessToken = async (refreshToken: string, device: string) => {
+  // Validate device parameter before proceeding
+  validateDevice(device);
+
   // lets see if the given refresh token is valid JWT
   const record = await getRefreshToken(refreshToken, true);
 
@@ -130,7 +186,7 @@ const generateAccessToken = async (refreshToken: string, device: string) => {
   // lets get old token's payload (id and email)
   const payload = jwt.verify(
     refreshToken,
-    JWT_SECRET,
+    REFRESH_TOKEN_SECRET,
   ) as refreshTokenJWTPayload;
   // now that the previous record has been deleted, we generate new tokens
   const tokens = await generateTokens(
@@ -151,7 +207,7 @@ const getRefreshToken = async (
     // lets make sure the given token is valid
     const decoded = jwt.verify(
       refreshToken,
-      JWT_SECRET!,
+      REFRESH_TOKEN_SECRET,
     ) as refreshTokenJWTPayload;
 
     // coming here means that refresh token was valid, otherwise jwt would've sent us in catch block
@@ -202,10 +258,12 @@ const getRefreshToken = async (
 
     // so the token exists, and is not expired.
     // lets see if it contains the correct hashed token
-    const isTokenValid = await bcrypt.compare(
-      refreshToken,
-      validTokenRecord.tokenHash,
-    );
+    // Hash the incoming token and compare with stored hash
+    const incomingTokenHash = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+    const isTokenValid = incomingTokenHash === validTokenRecord.tokenHash;
 
     // if it doesnt contain the correct hashed jwt token, it's invalid token
     if (!isTokenValid)
@@ -239,8 +297,18 @@ const logout = async (refreshToken: string): Promise<void> => {
       },
     });
   } catch (error) {
-    // If the token is invalid or already deleted, we consider the logout successful
-    // and suppress the error.
+    // If the token is invalid or already deleted (appError), we consider logout successful
+    // This is idempotent behavior - logging out an already logged out session is OK
+    if (error instanceof appError) {
+      // Expected error - token was already invalid/deleted, no action needed
+      return;
+    }
+
+    // Unexpected error (e.g., DB connection failure) - log it for debugging
+    console.error("Unexpected error during logout:", error);
+
+    // Re-throw unexpected errors so they can be handled by the caller
+    throw new appError(500, "An error occurred during logout");
   }
 };
 
