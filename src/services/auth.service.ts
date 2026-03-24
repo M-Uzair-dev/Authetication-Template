@@ -93,7 +93,10 @@ const Login = async (
     tokens,
   };
 };
-const forgotPassword = async (email: string): Promise<boolean> => {
+const forgotPassword = async (
+  email: string,
+  device: string,
+): Promise<boolean> => {
   const user = await prisma.user.findUnique({
     where: { email },
   });
@@ -103,7 +106,10 @@ const forgotPassword = async (email: string): Promise<boolean> => {
       "Check your inbox. If an account is associated with that email, we've sent you a link to continue.",
     );
   await prisma.$transaction(async (tx) => {
-    // here we will add the logic to generate reset password token
+    const resetPasswordToken = await tokenService.generateForgotPasswordToken(
+      user.id,
+      device,
+    );
     // here we will add the logic to send reset password email via nodmemailer
   });
   return true;

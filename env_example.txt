@@ -9,3 +9,8 @@ ACCESS_TOKEN_SECRET=YourAccessTokenSecretHere
 # 7 days in milliseconds (1000 * 60 * 60 * 24 * 7)
 REFRESH_TOKEN_EXPIRY=604800000
 REFRESH_TOKEN_SECRET=YourRefreshTokenSecretHere
+
+# Reset Token Configuration
+# 30 minutes in milliseconds (1000 * 60 * 30)
+RESET_TOKEN_EXPIRY=1800000
+RESET_TOKEN_SECRET=YourResetTokenSecretHere

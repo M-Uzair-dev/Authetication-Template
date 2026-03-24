@@ -6,17 +6,23 @@ import { errorType } from "../errors/errors.js";
 import { v4 as uuid } from "uuid";
 import type { Token } from "@prisma/client";
 import type { PrismaClient, Prisma } from "@prisma/client";
+import { env } from "process";
+import { tokenToString } from "typescript";
 
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const REFRESH_TOKEN_EXPIRY = parseInt(process.env.REFRESH_TOKEN_EXPIRY || "");
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const ACCESS_TOKEN_EXPIRY = parseInt(process.env.ACCESS_TOKEN_EXPIRY || "");
+const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET;
+const RESET_TOKEN_EXPIRY = parseInt(process.env.RESET_TOKEN_EXPIRY || "");
 
 if (
   !REFRESH_TOKEN_EXPIRY ||
   !REFRESH_TOKEN_SECRET ||
   !ACCESS_TOKEN_SECRET ||
-  !ACCESS_TOKEN_EXPIRY
+  !ACCESS_TOKEN_EXPIRY ||
+  !RESET_TOKEN_EXPIRY ||
+  !RESET_TOKEN_SECRET
 )
   throw new Error("JWT Secret is required!");
 type payloadType = {
@@ -326,10 +332,41 @@ const logoutAll = async (userId: string): Promise<number> => {
     throw new appError(500, "Something went wrong!");
   }
 };
+
+const generateForgotPasswordToken = async (
+  userId: string,
+  device: string,
+  db: DBClient = prisma,
+): Promise<string> => {
+  const tokenId = uuid();
+
+  // 1. Generate the token
+  const token = jwt.sign({ id: userId, tokenId }, RESET_TOKEN_SECRET, {
+    expiresIn: RESET_TOKEN_EXPIRY / 1000,
+  });
+
+  // 2. Hash the token before storing
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+  // 3. Store the record
+  await db.token.create({
+    data: {
+      id: tokenId, // Useful for quick lookups
+      type: "PASSWORD_RESET",
+      tokenHash,
+      userId,
+      device,
+      expiresAt: new Date(Date.now() + RESET_TOKEN_EXPIRY),
+    },
+  });
+
+  return token;
+};
 export default {
   generateTokens,
   generateAccessToken,
   verifyUser,
   logout,
   logoutAll,
+  generateForgotPasswordToken,
 };
