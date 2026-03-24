@@ -2,8 +2,15 @@ import type { User } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { appError } from "../errors/errors.js";
 import tokenService from "./token.service.js";
+import emailService from "./email.service.js";
 import bcrypt from "bcrypt";
+import { getLoginMeta } from "../utils/getLoginInfo.js";
+import type { Request } from "express";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
+const frontend = process.env.FRONTEND_URL;
+if (!frontend) throw new Error("Frontend url was not found in env");
 type Tokens = {
   accessToken: string;
   refreshToken: string;
@@ -25,7 +32,7 @@ const Signup = async (
   });
   if (existingUser)
     throw new appError(400, "A user with this email already exists.");
-  const hashedPassword = await bcrypt.hash(userPassword, 10);
+  const hashedPassword = await bcrypt.hash(userPassword, 12);
 
   let response = await prisma.$transaction(async (tx) => {
     const newUser = await tx.user.create({
@@ -44,13 +51,20 @@ const Signup = async (
       tx,
     );
 
-    // Verification token generation logic comes here
-
-    // verification email sending logic comes here we will use nodemailer
-
     return { user: newUser, tokens };
   });
 
+  // generate and send token via email
+  // TODO: Create a worker queue that will handle these requests rather than slowing down requests
+  // failure of this email is not an issue, user can request a new one
+  const token = await tokenService.generateVerificationToken(
+    response.user.id,
+    device,
+  );
+  await emailService.sendVerificationEmail(
+    response.user.email,
+    `${frontend}/verifyEmail?t=${token}`,
+  );
   const { password, ...rest } = response.user;
   return { user: rest, tokens: response.tokens };
 };
@@ -59,6 +73,7 @@ const Login = async (
   email: string,
   userPassword: string,
   device: string,
+  req: Request,
 ): Promise<{
   user: Omit<User, "password">;
   tokens: Tokens;
@@ -74,25 +89,56 @@ const Login = async (
   );
   if (!user || !isMatch) throw new appError(404, "Invalid Credentials");
 
-  const tokens = await prisma.$transaction(async (tx) => {
-    let record = await tokenService.generateTokens(
-      {
-        id: user.id,
-        email,
-      },
-      device,
-      tx,
+  const tokens = await tokenService.generateTokens(
+    {
+      id: user.id,
+      email,
+    },
+    device,
+  );
+
+  try {
+    // TODO: create a worker queue to handle these operations ratehr than slowing down the request
+    // But for now, lets keep it this way
+    const loginData = await getLoginMeta(req);
+    await emailService.sendLoginAlertEmail(
+      user.email,
+      `${frontend}/secure-account`,
+      loginData,
     );
-    // here, we will add logic to send user an email that someone logged in
-    // using nodemailer
-    return record;
-  });
+  } catch (error) {
+    console.error("Failed to send login alert:", error);
+  }
+
   const { password, ...rest } = user;
   return {
     user: rest,
     tokens,
   };
 };
+
+//   device: string,
+// ): Promise<boolean> => {
+//   const user = await prisma.user.findUnique({
+//     where: { email },
+//   });
+//   if (!user)
+//     throw new appError(
+//       200,
+//       "Check your inbox. If an account is associated with that email, we've sent you a link to continue.",
+//     );
+//   await prisma.$transaction(async (tx) => {
+//     const token = await tokenService.generateForgotPasswordToken(
+//       user.id,
+//       device,
+//     );
+//     await emailService.sendResetPasswordEmail(
+//       user.email,
+//       `${frontend}/resetPassword?t=${token}`,
+//     );
+//   });
+//   return true;
+// };
 const forgotPassword = async (
   email: string,
   device: string,
@@ -100,20 +146,37 @@ const forgotPassword = async (
   const user = await prisma.user.findUnique({
     where: { email },
   });
-  if (!user)
-    throw new appError(
-      200,
-      "Check your inbox. If an account is associated with that email, we've sent you a link to continue.",
-    );
-  await prisma.$transaction(async (tx) => {
-    const resetPasswordToken = await tokenService.generateForgotPasswordToken(
+
+  if (user) {
+    // User exists - generate token and send real email
+    const token = await tokenService.generateForgotPasswordToken(
       user.id,
       device,
     );
-    // here we will add the logic to send reset password email via nodmemailer
-  });
+    try {
+      await emailService.sendResetPasswordEmail(
+        user.email,
+        `${frontend}/resetPassword?t=${token}`,
+      );
+    } catch (error) {
+      console.error("Failed to send password reset email:", error);
+    }
+  } else {
+    // User doesn't exist - simulate the same operations to take similar time
+    // Generate a dummy token (not stored)
+    const dummyToken = jwt.sign({ dummy: true }, "DummySecret", {
+      expiresIn: 3600,
+    });
+    crypto.createHash("sha256").update(dummyToken).digest("hex");
+
+    // Maybe add a small delay to match DB operations
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  // Always return success with the same message
   return true;
 };
+
 export default {
   Signup,
   Login,

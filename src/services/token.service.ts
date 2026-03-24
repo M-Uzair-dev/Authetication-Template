@@ -13,6 +13,10 @@ const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const ACCESS_TOKEN_EXPIRY = parseInt(process.env.ACCESS_TOKEN_EXPIRY || "");
 const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET;
 const RESET_TOKEN_EXPIRY = parseInt(process.env.RESET_TOKEN_EXPIRY || "");
+const VERIFICATION_TOKEN_SECRET = process.env.VERIFICATION_TOKEN_SECRET;
+const VERIFICATION_TOKEN_EXPIRY = parseInt(
+  process.env.VERIFICATION_TOKEN_EXPIRY || "",
+);
 
 if (
   !REFRESH_TOKEN_EXPIRY ||
@@ -20,7 +24,9 @@ if (
   !ACCESS_TOKEN_SECRET ||
   !ACCESS_TOKEN_EXPIRY ||
   !RESET_TOKEN_EXPIRY ||
-  !RESET_TOKEN_SECRET
+  !RESET_TOKEN_SECRET ||
+  !VERIFICATION_TOKEN_SECRET ||
+  !VERIFICATION_TOKEN_EXPIRY
 )
   throw new Error("JWT Secret is required!");
 type payloadType = {
@@ -346,20 +352,67 @@ const generateForgotPasswordToken = async (
   // 2. Hash the token before storing
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-  // 3. Store the record
-  await db.token.create({
-    data: {
-      id: tokenId, // Useful for quick lookups
-      type: "PASSWORD_RESET",
-      tokenHash,
-      userId,
-      device,
-      expiresAt: new Date(Date.now() + RESET_TOKEN_EXPIRY),
-    },
+  // 3. Delete old ones and Store the new record
+  await prisma.$transaction(async (tx) => {
+    await tx.token.deleteMany({
+      where: {
+        userId,
+        type: "PASSWORD_RESET",
+      },
+    });
+    await tx.token.create({
+      data: {
+        id: tokenId,
+        type: "PASSWORD_RESET",
+        tokenHash,
+        userId,
+        device,
+        expiresAt: new Date(Date.now() + RESET_TOKEN_EXPIRY),
+      },
+    });
   });
 
   return token;
 };
+
+const generateVerificationToken = async (
+  userId: string,
+  device: string,
+  db: DBClient = prisma,
+): Promise<string> => {
+  const tokenId = uuid();
+
+  // 1. Generate the token
+  const token = jwt.sign({ id: userId, tokenId }, VERIFICATION_TOKEN_SECRET, {
+    expiresIn: VERIFICATION_TOKEN_EXPIRY / 1000,
+  });
+
+  // 2. Hash the token before storing
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+  // 3. Delete old ones and Store the new record
+  await prisma.$transaction(async (tx) => {
+    await tx.token.deleteMany({
+      where: {
+        userId,
+        type: "EMAIL_VERIFICATION",
+      },
+    });
+    await tx.token.create({
+      data: {
+        id: tokenId,
+        type: "EMAIL_VERIFICATION",
+        tokenHash,
+        userId,
+        device,
+        expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY),
+      },
+    });
+  });
+
+  return token;
+};
+
 export default {
   generateTokens,
   generateAccessToken,
@@ -367,4 +420,5 @@ export default {
   logout,
   logoutAll,
   generateForgotPasswordToken,
+  generateVerificationToken,
 };

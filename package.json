@@ -39,7 +39,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
-    "dev": "nodemon --watch 'src/**/*.ts' --exec 'tsc && node dist/index.js'",
+    "dev": "nodemon --watch src/**/*.ts --exec \"npx tsc && node dist/index.js\"",
     "start": "node dist/index.js"
   },
   "dependencies": {
@@ -48,11 +48,14 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "handlebars": "^4.7.8",
     "helmet": "^8.1.0",
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^8.0.3",
     "prisma": "^7.5.0",
     "typescript": "^5.9.3",
+    "ua-parser-js": "^2.0.9",
     "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },
@@ -63,6 +66,8 @@
     "@types/helmet": "^0.0.48",
     "@types/ioredis": "^4.28.10",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/nodemailer": "^7.0.11",
+    "@types/ua-parser-js": "^0.7.39",
     "nodemon": "^3.1.14",
     "tsc-node": "^0.0.3"
   }
