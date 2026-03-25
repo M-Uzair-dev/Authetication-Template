@@ -14,3 +14,18 @@ REFRESH_TOKEN_SECRET=YourRefreshTokenSecretHere
 # 30 minutes in milliseconds (1000 * 60 * 30)
 RESET_TOKEN_EXPIRY=1800000
 RESET_TOKEN_SECRET=YourResetTokenSecretHere
+
+# Email Verification Token Configuration
+# 2 days in milliseconds (1000 * 60 * 60 * 24 * 2)
+VERIFICATION_TOKEN_EXPIRY=172800000
+VERIFICATION_TOKEN_SECRET=YourVerificationTokenSecretHere
+
+# nodemailer credentials
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=your-email@gmail.com
+MAIL_PASS=your-app-password
+
+# general variables
+
+FRONTEND_URL=http://localhost:3000

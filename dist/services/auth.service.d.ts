@@ -14,6 +14,7 @@ declare const _default: {
         tokens: Tokens;
     }>;
     forgotPassword: (email: string, device: string) => Promise<boolean>;
+    resetPassword: (newPassword: string, token: string) => Promise<boolean>;
 };
 export default _default;
 //# sourceMappingURL=auth.service.d.ts.map

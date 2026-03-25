@@ -7,8 +7,9 @@ import { getLoginMeta } from "../utils/getLoginInfo.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 const frontend = process.env.FRONTEND_URL;
-if (!frontend)
-    throw new Error("Frontend url was not found in env");
+const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET;
+if (!frontend || !RESET_TOKEN_SECRET)
+    throw new Error("Some env vars were not found in env");
 const Signup = async (name, email, userPassword, device) => {
     const existingUser = await prisma.user.findUnique({
         where: {
@@ -54,7 +55,7 @@ const Login = async (email, userPassword, device, req) => {
         // TODO: create a worker queue to handle these operations ratehr than slowing down the request
         // But for now, lets keep it this way
         const loginData = await getLoginMeta(req);
-        await emailService.sendLoginAlertEmail(user.email, loginData);
+        await emailService.sendLoginAlertEmail(user.email, `${frontend}/secure-account`, loginData);
     }
     catch (error) {
         console.error("Failed to send login alert:", error);
@@ -94,7 +95,12 @@ const forgotPassword = async (email, device) => {
     if (user) {
         // User exists - generate token and send real email
         const token = await tokenService.generateForgotPasswordToken(user.id, device);
-        await emailService.sendResetPasswordEmail(user.email, `${frontend}/resetPassword?t=${token}`);
+        try {
+            await emailService.sendResetPasswordEmail(user.email, `${frontend}/resetPassword?t=${token}`);
+        }
+        catch (error) {
+            console.error("Failed to send password reset email:", error);
+        }
     }
     else {
         // User doesn't exist - simulate the same operations to take similar time
@@ -109,9 +115,57 @@ const forgotPassword = async (email, device) => {
     // Always return success with the same message
     return true;
 };
+const resetPassword = async (newPassword, token) => {
+    // decode the token provided
+    let decoded;
+    try {
+        decoded = jwt.verify(token, RESET_TOKEN_SECRET);
+    }
+    catch (e) {
+        throw new appError(400, "Invalid Reset Token");
+    }
+    // after decoding, get the token from db
+    const existingToken = await prisma.token.findUnique({
+        where: {
+            id: decoded.tokenId,
+        },
+    });
+    // if token is not in db, throw error
+    if (!existingToken)
+        throw new appError(400, "Invalid Reset Token");
+    let userId = existingToken.userId;
+    // now lets make sure the token contains propoer hash, is not expired
+    const isMatch = crypto.createHash("sha256").update(token).digest("hex") ===
+        existingToken.tokenHash;
+    if (!isMatch || existingToken.expiresAt < new Date())
+        throw new appError(400, "Invalid Reset Token");
+    // now lets update the passsword
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const updatedUser = await prisma.$transaction(async (tx) => {
+        // in a prisma transaction, we update user password and delete the tokens
+        const user = await tx.user.update({
+            where: {
+                id: userId,
+            },
+            data: {
+                password: hashedPassword,
+            },
+        });
+        // now we delete the current reset token and all user sessions
+        await tx.token.deleteMany({
+            where: {
+                userId: existingToken.userId,
+                OR: [{ id: existingToken.id }, { type: "REFRESH_TOKEN" }],
+            },
+        });
+        return user;
+    });
+    return true;
+};
 export default {
     Signup,
     Login,
     forgotPassword,
+    resetPassword,
 };
 //# sourceMappingURL=auth.service.js.map

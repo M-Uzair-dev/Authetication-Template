@@ -27,8 +27,19 @@ if (
   !RESET_TOKEN_SECRET ||
   !VERIFICATION_TOKEN_SECRET ||
   !VERIFICATION_TOKEN_EXPIRY
-)
+) {
+  console.log({
+    REFRESH_TOKEN_EXPIRY,
+    REFRESH_TOKEN_SECRET,
+    ACCESS_TOKEN_SECRET,
+    ACCESS_TOKEN_EXPIRY,
+    RESET_TOKEN_EXPIRY,
+    RESET_TOKEN_SECRET,
+    VERIFICATION_TOKEN_SECRET,
+    VERIFICATION_TOKEN_EXPIRY,
+  });
   throw new Error("JWT Secret is required!");
+}
 type payloadType = {
   id: string;
   email: string;

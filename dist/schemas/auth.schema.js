@@ -1,0 +1,46 @@
+import { z } from "zod";
+const emailSchema = z
+    .email("Invalid email address")
+    .transform((val) => val.trim().toLowerCase());
+const passwordSchema = z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100, "Password is too long")
+    .regex(/[A-Z]/, "Must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Must contain at least one special character");
+const loginSchema = z.object({
+    email: emailSchema,
+    password: passwordSchema,
+    device: z.uuid({
+        message: "Please include a {device} property in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
+    }),
+});
+const signupSchema = z.object({
+    name: z
+        .string({ message: "Name is required" })
+        .transform((val) => val.trim()),
+    email: emailSchema,
+    password: passwordSchema,
+    device: z.uuid({
+        message: "Please include a {device} property in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
+    }),
+});
+const forgotPasswordSchema = z.object({
+    email: emailSchema,
+    device: z.uuid({
+        message: "Please include a {device} property in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
+    }),
+});
+const resetPasswordSchema = z.object({
+    token: z.string({ message: "Token is required" }),
+    newPassword: passwordSchema,
+});
+export default {
+    loginSchema,
+    signupSchema,
+    forgotPasswordSchema,
+    resetPasswordSchema,
+};
+//# sourceMappingURL=auth.schema.js.map

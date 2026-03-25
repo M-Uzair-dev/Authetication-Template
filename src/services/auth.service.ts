@@ -10,11 +10,17 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 const frontend = process.env.FRONTEND_URL;
-if (!frontend) throw new Error("Frontend url was not found in env");
+const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET;
+
+if (!frontend || !RESET_TOKEN_SECRET)
+  throw new Error("Some env vars were not found in env");
+
 type Tokens = {
   accessToken: string;
   refreshToken: string;
 };
+
+type resetTokenType = { id: string; tokenId: string };
 
 const Signup = async (
   name: string,
@@ -177,8 +183,65 @@ const forgotPassword = async (
   return true;
 };
 
+const resetPassword = async (
+  newPassword: string,
+  token: string,
+): Promise<boolean> => {
+  // decode the token provided
+  let decoded: resetTokenType;
+  try {
+    decoded = jwt.verify(token, RESET_TOKEN_SECRET) as resetTokenType;
+  } catch (e) {
+    throw new appError(400, "Invalid Reset Token");
+  }
+
+  // after decoding, get the token from db
+  const existingToken = await prisma.token.findUnique({
+    where: {
+      id: decoded.tokenId,
+    },
+  });
+
+  // if token is not in db, throw error
+  if (!existingToken) throw new appError(400, "Invalid Reset Token");
+
+  let userId = existingToken.userId;
+
+  // now lets make sure the token contains propoer hash, is not expired
+  const isMatch =
+    crypto.createHash("sha256").update(token).digest("hex") ===
+    existingToken.tokenHash;
+  if (!isMatch || existingToken.expiresAt < new Date())
+    throw new appError(400, "Invalid Reset Token");
+
+  // now lets update the passsword
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    // in a prisma transaction, we update user password and delete the tokens
+    const user = await tx.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        password: hashedPassword,
+      },
+    });
+    // now we delete the current reset token and all user sessions
+    await tx.token.deleteMany({
+      where: {
+        userId: existingToken.userId,
+        OR: [{ id: existingToken.id }, { type: "REFRESH_TOKEN" }],
+      },
+    });
+    return user;
+  });
+
+  return true;
+};
+
 export default {
   Signup,
   Login,
   forgotPassword,
+  resetPassword,
 };

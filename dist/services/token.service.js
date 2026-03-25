@@ -19,8 +19,19 @@ if (!REFRESH_TOKEN_EXPIRY ||
     !RESET_TOKEN_EXPIRY ||
     !RESET_TOKEN_SECRET ||
     !VERIFICATION_TOKEN_SECRET ||
-    !VERIFICATION_TOKEN_EXPIRY)
+    !VERIFICATION_TOKEN_EXPIRY) {
+    console.log({
+        REFRESH_TOKEN_EXPIRY,
+        REFRESH_TOKEN_SECRET,
+        ACCESS_TOKEN_SECRET,
+        ACCESS_TOKEN_EXPIRY,
+        RESET_TOKEN_EXPIRY,
+        RESET_TOKEN_SECRET,
+        VERIFICATION_TOKEN_SECRET,
+        VERIFICATION_TOKEN_EXPIRY,
+    });
     throw new Error("JWT Secret is required!");
+}
 const validateDevice = (device) => {
     // device must be provided, and not be empty
     if (!device || typeof device !== "string" || device.trim().length === 0) {
@@ -235,7 +246,7 @@ const generateForgotPasswordToken = async (userId, device, db = prisma) => {
     const tokenId = uuid();
     // 1. Generate the token
     const token = jwt.sign({ id: userId, tokenId }, RESET_TOKEN_SECRET, {
-        expiresIn: VERIFICATION_TOKEN_EXPIRY / 1000,
+        expiresIn: RESET_TOKEN_EXPIRY / 1000,
     });
     // 2. Hash the token before storing
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
@@ -254,7 +265,7 @@ const generateForgotPasswordToken = async (userId, device, db = prisma) => {
                 tokenHash,
                 userId,
                 device,
-                expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY),
+                expiresAt: new Date(Date.now() + RESET_TOKEN_EXPIRY),
             },
         });
     });

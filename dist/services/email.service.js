@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const transporter = nodemailer.createTransport({
     host: process.env.MAIL_HOST,
     port: Number(process.env.MAIL_PORT),
@@ -24,7 +27,7 @@ const sendVerificationEmail = async (to, url) => {
     html = html.replace(/{{url}}/g, url);
     await sendEmail(to, "Verify Your Email Address", html);
 };
-const sendLoginAlertEmail = async (to, loginMeta) => {
+const sendLoginAlertEmail = async (to, secureAccountUrl, loginMeta) => {
     const templatePath = path.join(__dirname, "../emails/loginAlert.html");
     let html = fs.readFileSync(templatePath, "utf-8");
     html = html.replace(/{{device}}/g, loginMeta.device);
@@ -32,6 +35,7 @@ const sendLoginAlertEmail = async (to, loginMeta) => {
     html = html.replace(/{{location}}/g, loginMeta.location);
     html = html.replace(/{{time}}/g, loginMeta.time);
     html = html.replace(/{{ip}}/g, loginMeta.ip);
+    html = html.replace(/{{secureAccountUrl}}/g, secureAccountUrl);
     await sendEmail(to, "New Login Detected", html);
 };
 const sendResetPasswordEmail = async (to, url) => {

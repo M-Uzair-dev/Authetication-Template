@@ -2,6 +2,9 @@ import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
 import type { LoginMeta } from "../utils/getLoginInfo.js";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const transporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
