@@ -29,3 +29,4 @@ MAIL_PASS=your-app-password
 # general variables
 
 FRONTEND_URL=http://localhost:3000
+

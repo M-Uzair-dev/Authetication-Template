@@ -18,7 +18,7 @@ const loginSchema = z.object({
   password: passwordSchema,
   device: z.uuid({
     message:
-      "Please include a {device} property in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
+      "Please include a {device} property with a valid uuid in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
   }),
 });
 
@@ -30,7 +30,7 @@ const signupSchema = z.object({
   password: passwordSchema,
   device: z.uuid({
     message:
-      "Please include a {device} property in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
+      "Please include a {device} property with a valid uuid in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
   }),
 });
 
@@ -38,7 +38,7 @@ const forgotPasswordSchema = z.object({
   email: emailSchema,
   device: z.uuid({
     message:
-      "Please include a {device} property in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
+      "Please include a {device} property with a valid uuid in request, you can generate a random uuid and store it in localstorage, then send it with each request. it is used to allow multiple sessions per user.",
   }),
 });
 const resetPasswordSchema = z.object({
