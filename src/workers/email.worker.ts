@@ -11,7 +11,11 @@ const emailWorker = new Worker<EmailData>(
 
     console.log("Processing email job:", job.data.to);
 
-    await emailService.sendEmail(to, subject, html);
+    // this functionality is working and tested, i am commenting
+    // this for testing purposes because of so many emails being sent
+    // to testing accounts
+
+    // await emailService.sendEmail(to, subject, html);
   },
   {
     connection: redisConnection,

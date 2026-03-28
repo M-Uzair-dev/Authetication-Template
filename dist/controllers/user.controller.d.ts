@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 declare const _default: {
-    getCurrentUser: (req: Request, res: Response) => Promise<void>;
+    getCurrentUser: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
     deleteCurrentUser: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
     updateCurrentUser: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
 };
