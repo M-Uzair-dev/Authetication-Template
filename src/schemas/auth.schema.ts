@@ -54,6 +54,10 @@ const logoutSchema = z.object({
 const newAccessTokenSchema = z.object({
   device: deviceSchema,
 });
+const changePasswordSchema = z.object({
+  newPassword: passwordSchema,
+  confirmPassword: passwordSchema,
+});
 export default {
   loginSchema,
   signupSchema,
@@ -63,4 +67,5 @@ export default {
   verifyEmailSchema,
   logoutSchema,
   newAccessTokenSchema,
+  changePasswordSchema
 };

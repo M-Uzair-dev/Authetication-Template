@@ -41,5 +41,10 @@ router.post(
   strictAuthLimiter,
   authController.getNewAccessToken,
 );
-
+router.post(
+  "/change-password",
+  strictAuthLimiter,
+  verifyUser,
+  authController.changePassword,
+);
 export default router;

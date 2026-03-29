@@ -12,6 +12,23 @@ All routes are prefixed:
 
 ---
 
+## Frontend Routes Required
+
+The backend sends emails with links pointing to your frontend. You must implement the following routes in your frontend application:
+
+| Frontend Route | Used by | Description |
+|---|---|---|
+| `/verify-email/:token` | Signup, Resend verification | Extract `:token` from the URL and send it to `POST /auth/verifyEmail` |
+| `/reset-password/:token` | Forgot password | Extract `:token` from the URL and send it to `POST /auth/resetPassword` |
+
+Example email link format:
+```
+https://yourapp.com/verify-email/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+https://yourapp.com/reset-password/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+---
+
 ## Authentication
 
 Tokens are stored as **httpOnly cookies** — the browser sends them automatically. You do not need to set Authorization headers.
@@ -27,7 +44,7 @@ When the access token expires, call `POST /auth/get-access-token` to silently ro
 
 ## The `device` Field
 
-Most endpoints require a `device` field in the request body. This must be a **valid UUID v4** that uniquely identifies the client device/browser. Generate one once and persist it (e.g. `localStorage`).
+Most endpoints require a `device` field. This must be a **valid UUID v4** that uniquely identifies the client device/browser. Generate one once and persist it (e.g. `localStorage`).
 
 ```
 "device": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
@@ -62,6 +79,7 @@ This enables per-device session management — each device gets its own refresh 
 {
   "success": false,
   "message": "Validation failed",
+  "type": "VALIDATION_ERROR",
   "details": [
     { "field": "email", "message": "Invalid email address" },
     { "field": "password", "message": "Must contain at least one uppercase letter" }
@@ -149,9 +167,9 @@ Register a new account. Sets `access_token` and `refresh_token` cookies on succe
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `400` | `"A user with this email already exists."` | — |
-| `400` | Validation errors | — |
-| `429` | `"Too many requests"` | `6` |
+| `400` | `"A user with this email already exists."` | `"APP_ERROR"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
 ---
 
@@ -190,9 +208,9 @@ Authenticate with email and password. Sets `access_token` and `refresh_token` co
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `404` | `"Invalid Credentials"` | `2` |
-| `400` | Validation errors | — |
-| `429` | `"Too many requests"` | `6` |
+| `404` | `"Invalid Credentials"` | `"INVALID_CREDENTIALS"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
 ---
 
@@ -226,10 +244,10 @@ Sends a password reset email. Always returns success regardless of whether the e
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `400` | Validation errors | — |
-| `429` | `"Too many requests"` | `6` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
-> The email contains a link to `{FRONTEND_URL}/resetPassword?t={token}`. The token expires per `RESET_TOKEN_EXPIRY`.
+> The email contains a link to `{FRONTEND_URL}/reset-password/{token}`. The token expires per `RESET_TOKEN_EXPIRY`.
 
 ---
 
@@ -242,14 +260,14 @@ Resets the user's password using the token from the reset email. On success, del
 ### Request Body
 ```json
 {
-  "token": "<token from email link query param>",
+  "token": "<token extracted from /reset-password/:token URL>",
   "newPassword": "NewSecurePass1!"
 }
 ```
 
 | Field | Type | Rules |
 |---|---|---|
-| `token` | string | Required |
+| `token` | string | Required — the path param from the frontend `/reset-password/:token` route |
 | `newPassword` | string | 8–100 chars, complexity rules |
 
 ### Response `200`
@@ -263,9 +281,9 @@ Resets the user's password using the token from the reset email. On success, del
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `400` | `"Invalid Reset Token"` | — |
-| `400` | Validation errors | — |
-| `429` | `"Too many requests"` | `6` |
+| `400` | `"Invalid Reset Token"` | `"APP_ERROR"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
 ---
 
@@ -278,13 +296,13 @@ Verifies a user's email address using the token from the verification email. Set
 ### Request Body
 ```json
 {
-  "token": "<token from email link query param>"
+  "token": "<token extracted from /verify-email/:token URL>"
 }
 ```
 
 | Field | Type | Rules |
 |---|---|---|
-| `token` | string | Required |
+| `token` | string | Required — the path param from the frontend `/verify-email/:token` route |
 
 ### Response `200`
 ```json
@@ -297,9 +315,9 @@ Verifies a user's email address using the token from the verification email. Set
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `400` | `"Invalid Verification Token"` | — |
-| `400` | Validation errors | — |
-| `429` | `"Too many requests"` | `6` |
+| `400` | `"Invalid Verification Token"` | `"APP_ERROR"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
 ---
 
@@ -333,10 +351,10 @@ Resends the email verification link. Enforces a 5-minute cooldown between reques
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `429` | `"Please wait {n} minutes before requesting another email."` | — |
-| `500` | `"We couldn't send the email. Please try again in a moment."` | — |
-| `400` | Validation errors | — |
-| `429` | `"Too many requests"` (rate limiter) | `6` |
+| `429` | `"Please wait {n} minutes before requesting another email."` | `"APP_ERROR"` |
+| `500` | `"We couldn't send the email. Please try again in a moment."` | `"APP_ERROR"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
 ---
 
@@ -345,7 +363,7 @@ Resends the email verification link. Enforces a 5-minute cooldown between reques
 Logs out the current device session. Deletes the refresh token from the database and sets a Redis revocation key to block any in-flight access tokens. Clears both cookies.
 
 **Rate limit:** 10 requests / 5 minutes
-**Auth required:** Yes (access token cookie)
+**Auth required:** Yes
 
 ### Request Body
 ```json
@@ -369,10 +387,10 @@ Logs out the current device session. Deletes the refresh token from the database
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `401` | `"Unauthorized"` | `5` |
-| `401` | `"Access token expired..."` | `0` |
-| `401` | `"Session revoked or expired..."` | `1` |
-| `429` | `"Too many requests"` | `6` |
+| `401` | `"Unauthorized"` | `"UNAUTHORIZED"` |
+| `401` | `"Access token expired. Use refresh token to continue."` | `"ACCESS_TOKEN_EXPIRED"` |
+| `401` | `"Session revoked or expired. Please login again."` | `"REFRESH_TOKEN_EXPIRED"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
 ---
 
@@ -381,7 +399,7 @@ Logs out the current device session. Deletes the refresh token from the database
 Logs out all active sessions for the authenticated user across all devices. Expires all refresh tokens in the DB and writes Redis revocation keys for each.
 
 **Rate limit:** 10 requests / 5 minutes
-**Auth required:** Yes (access token cookie)
+**Auth required:** Yes
 
 ### Request Body
 ```json
@@ -405,11 +423,11 @@ Logs out all active sessions for the authenticated user across all devices. Expi
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `400` | `"User not found!"` | `3` |
-| `401` | `"Unauthorized"` | `5` |
-| `401` | `"Access token expired..."` | `0` |
-| `401` | `"Session revoked or expired..."` | `1` |
-| `429` | `"Too many requests"` | `6` |
+| `400` | `"User not found!"` | `"USER_NOT_FOUND"` |
+| `401` | `"Unauthorized"` | `"UNAUTHORIZED"` |
+| `401` | `"Access token expired. Use refresh token to continue."` | `"ACCESS_TOKEN_EXPIRED"` |
+| `401` | `"Session revoked or expired. Please login again."` | `"REFRESH_TOKEN_EXPIRED"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
 ---
 
@@ -443,10 +461,51 @@ Silently rotates both tokens using the refresh token cookie. Call this when a re
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `401` | `"Refresh token invalid, please login again."` | `1` |
-| `401` | `"Session revoked or expired. Please login again."` | `1` |
-| `400` | Validation errors | — |
-| `429` | `"Too many requests"` | `6` |
+| `401` | `"Refresh token invalid, please login again."` | `"REFRESH_TOKEN_EXPIRED"` |
+| `401` | `"Session revoked or expired. Please login again."` | `"REFRESH_TOKEN_EXPIRED"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
+
+---
+
+## POST /auth/change-password
+
+Changes the password for the currently authenticated user. Hashes the new password, revokes all active sessions across all devices, and clears the current device's cookies. The user must log in again on all devices.
+
+**Rate limit:** 10 requests / 5 minutes
+**Auth required:** Yes
+
+### Request Body
+```json
+{
+  "newPassword": "NewSecurePass1!",
+  "confirmPassword": "NewSecurePass1!"
+}
+```
+
+| Field | Type | Rules |
+|---|---|---|
+| `newPassword` | string | 8–100 chars, must contain uppercase, lowercase, digit, special character |
+| `confirmPassword` | string | Must match `newPassword` |
+
+### Response `200`
+```json
+{
+  "success": true,
+  "message": "Password changed successfully, please login again!"
+}
+```
+
+### Errors
+| Status | Message | Type |
+|---|---|---|
+| `400` | `"Passwords do not match"` | `"BAD_REQUEST"` |
+| `400` | `"Please login"` | `"BAD_REQUEST"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
+| `401` | `"Unauthorized"` | `"UNAUTHORIZED"` |
+| `401` | `"Access token expired. Use refresh token to continue."` | `"ACCESS_TOKEN_EXPIRED"` |
+| `401` | `"Session revoked or expired. Please login again."` | `"REFRESH_TOKEN_EXPIRED"` |
+| `429` | `"Too many requests, please wait before retrying!"` | `"TOO_MANY_REQUESTS"` |
 
 ---
 
@@ -460,9 +519,9 @@ All user routes require authentication (access token cookie).
 
 | Status | Message | Type |
 |---|---|---|
-| `401` | `"Unauthorized"` | `5` |
-| `401` | `"Access token expired..."` | `0` |
-| `401` | `"Session revoked or expired. Please login again."` | `1` |
+| `401` | `"Unauthorized"` | `"UNAUTHORIZED"` |
+| `401` | `"Access token expired. Use refresh token to continue."` | `"ACCESS_TOKEN_EXPIRED"` |
+| `401` | `"Session revoked or expired. Please login again."` | `"REFRESH_TOKEN_EXPIRED"` |
 
 ---
 
@@ -491,7 +550,7 @@ Returns the currently authenticated user. Checks Redis cache first; falls back t
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `400` | `"User not found!"` | `3` |
+| `400` | `"User not found!"` | `"USER_NOT_FOUND"` |
 
 ---
 
@@ -524,8 +583,8 @@ Updates the authenticated user's profile. Currently supports updating `name` onl
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `404` | `"User not found!"` | `3` |
-| `400` | Validation errors | — |
+| `404` | `"User not found!"` | `"USER_NOT_FOUND"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
 
 ---
 
@@ -544,13 +603,21 @@ Permanently deletes the authenticated user's account and all associated tokens (
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `404` | `"User not found!"` | `3` |
+| `404` | `"User not found!"` | `"USER_NOT_FOUND"` |
 
 ---
 
 ## GET /user/sessions
 
-Returns all active sessions (refresh tokens) for the authenticated user. `lastActive` is populated from Redis — reflects when that session last made an authenticated request.
+Returns all active sessions (refresh tokens) for the authenticated user. `lastActive` is populated from Redis. `current` is `true` for the session matching the provided `device`.
+
+### Query Parameters
+
+| Param | Type | Rules |
+|---|---|---|
+| `device` | string | Required, valid UUID v4 |
+
+Example: `GET /user/sessions?device=a1b2c3d4-e5f6-7890-abcd-ef1234567890`
 
 ### Response `200`
 ```json
@@ -561,13 +628,17 @@ Returns all active sessions (refresh tokens) for the authenticated user. `lastAc
     "sessions": [
       {
         "id": "uuid",
+        "device": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
         "deviceName": "Chrome on Windows",
-        "lastActive": "2026-03-29T14:30:00.000Z"
+        "lastActive": "2026-03-29T14:30:00.000Z",
+        "current": true
       },
       {
         "id": "uuid",
+        "device": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
         "deviceName": "Mobile Safari",
-        "lastActive": null
+        "lastActive": "2026-03-28T09:00:00.000Z",
+        "current": false
       }
     ]
   }
@@ -577,8 +648,15 @@ Returns all active sessions (refresh tokens) for the authenticated user. `lastAc
 | Field | Type | Description |
 |---|---|---|
 | `id` | string | Token ID — use this as `tokenId` to revoke the session |
+| `device` | string \| null | The device UUID associated with this session |
 | `deviceName` | string \| null | Parsed from User-Agent at login time |
 | `lastActive` | ISO datetime \| null | Last authenticated request timestamp (from Redis) |
+| `current` | boolean | `true` if this session belongs to the requesting device |
+
+### Errors
+| Status | Message | Type |
+|---|---|---|
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
 
 ---
 
@@ -608,10 +686,10 @@ Revokes a specific session by its token ID. Verifies the session belongs to the 
 ### Errors
 | Status | Message | Type |
 |---|---|---|
-| `400` | `"Token not found."` | — |
-| `400` | `"Invalid session, please login again!"` | — |
-| `401` | `"Unable to revoke token."` | — |
-| `400` | Validation errors | — |
+| `400` | `"Token not found."` | `"APP_ERROR"` |
+| `400` | `"Invalid session, please login again!"` | `"APP_ERROR"` |
+| `401` | `"Unable to revoke token."` | `"APP_ERROR"` |
+| `400` | Validation errors | `"VALIDATION_ERROR"` |
 
 ---
 

@@ -177,6 +177,26 @@ const getNewAccessToken = async (req: Request, res: Response) => {
     handleError(e, res);
   }
 };
+
+const changePassword = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    if (!userId) throw new appError(400, "Please login", errorType.BAD_REQUEST);
+    const { newPassword, confirmPassword } =
+      authSchema.changePasswordSchema.parse(req.body);
+
+    if (newPassword !== confirmPassword)
+      throw new appError(400, "Passwords do not match", errorType.BAD_REQUEST);
+    await authService.changePassword(userId, newPassword);
+    clearCookies(res);
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully, please login again!",
+    });
+  } catch (e: any) {
+    handleError(e, res);
+  }
+};
 export default {
   login,
   forgotPassword,
@@ -187,4 +207,5 @@ export default {
   logout,
   logoutAll,
   getNewAccessToken,
+  changePassword,
 };

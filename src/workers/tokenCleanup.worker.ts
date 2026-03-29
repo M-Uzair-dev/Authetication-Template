@@ -24,12 +24,8 @@ cleanupWorker.on("completed", () => {
   console.log("Cleaned tokens!");
 });
 
-tokenCleanupQueue.add(
-  "Cleanup-job",
-  {},
-  {
-    repeat: {
-      every: 600000, // 10 minutes
-    },
-  },
+await tokenCleanupQueue.upsertJobScheduler(
+  "token-cleanup",
+  { pattern: "*/10 * * * *" },
+  { name: "Cleanup-job", data: {} },
 );

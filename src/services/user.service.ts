@@ -70,6 +70,7 @@ const getUserSessions = async (
     id: string;
     deviceName: string | null;
     lastActive: Date | null;
+    device: string | null;
   }[]
 > => {
   const userTokens = await prisma.token.findMany({
@@ -81,6 +82,7 @@ const getUserSessions = async (
       id: true,
       deviceName: true,
       lastActive: true,
+      device: true,
     },
   });
   return userTokens;

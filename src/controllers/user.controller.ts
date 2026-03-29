@@ -86,11 +86,20 @@ const getUserSessions = async (req: Request, res: Response) => {
     if (!req.userId)
       throw new appError(400, "Please login", errorType.BAD_REQUEST);
 
-    const sessions = await userService.getUserSessions(req.userId);
+    const { device } = userSchema.getUserSessions.parse(req.query);
+
+    const sessions = (await userService.getUserSessions(req.userId)) as {
+      id: string;
+      deviceName: string | null;
+      lastActive: Date | null;
+      device: string | null;
+      current: boolean | null;
+    }[];
     await Promise.all(
       sessions.map(async (session) => {
         const lastActive = await redis.get(`last-active-${session.id}`);
         session.lastActive = lastActive ? new Date(lastActive) : null;
+        session.current = session.device == device;
       }),
     );
     return res.status(200).json({
@@ -120,6 +129,7 @@ const revokeSession = async (req: Request, res: Response) => {
     handleError(e, res);
   }
 };
+
 export default {
   getCurrentUser,
   deleteCurrentUser,

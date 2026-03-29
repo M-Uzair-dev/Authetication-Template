@@ -16,7 +16,7 @@ model User {
   id              String   @id @default(uuid())
 
   name            String
-  // here, you can add custom user fields like address, fatherName etc according to your need but after this, you'll need to update
+  // here, you can add custom user fields like address, role etc according to your need.
 
   email           String   @unique
   password        String

@@ -71,9 +71,7 @@ const Signup = async (
     return { user: newUser, tokens };
   });
 
-  // generate and send token via email
-  // TODO: Create a worker queue that will handle these requests rather than slowing down requests
-  // failure of this email is not an issue, user can request a new one
+  // generate and send token via email for email verification
   const { token, tokenId } = await tokenService.generateVerificationToken(
     response.user.id,
     device,
@@ -81,7 +79,7 @@ const Signup = async (
   try {
     await emailService.sendVerificationEmail(
       response.user.email,
-      `${frontend}/verifyEmail?t=${token}`,
+      `${frontend}/verify-email/${token}`,
       tokenId,
     );
   } catch (e) {
@@ -170,7 +168,7 @@ const forgotPassword = async (
     try {
       await emailService.sendResetPasswordEmail(
         user.email,
-        `${frontend}/resetPassword?t=${token}`,
+        `${frontend}/reset-password/${token}`,
         tokenId,
       );
     } catch (error) {
@@ -338,7 +336,7 @@ const resendVerificationToken = async (email: string, device: string) => {
   try {
     await emailService.sendVerificationEmail(
       user.email,
-      `${frontend}/verifyEmail?t=${token}`,
+      `${frontend}/verify-email/${token}`,
       tokenId,
     );
   } catch (error) {
@@ -407,6 +405,39 @@ const getNewAccessToken = async (refreshToken: string, device: string) => {
   );
   return newTokens;
 };
+const changePassword = async (userId: string, newPassword: string) => {
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+  await prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      password: hashedPassword,
+    },
+  });
+  const userSessions = await prisma.$transaction(async (tx) => {
+    // 1. Update the records
+    await tx.token.updateMany({
+      where: { userId, type: "REFRESH_TOKEN" },
+      data: { expiresAt: new Date() },
+    });
+
+    // 2. Fetch the records you just updated
+    const sessions = await tx.token.findMany({
+      where: { userId, type: "REFRESH_TOKEN" },
+      select: { id: true }, // Or whatever fields you need
+    });
+
+    return sessions;
+  });
+  if (!userSessions) return;
+  await Promise.all(
+    userSessions.map(async (session) => {
+      await redis.set(`revoked-${session.id}`, "true", "EX", 60 * 30);
+    }),
+  );
+};
 export default {
   Signup,
   Login,
@@ -417,4 +448,5 @@ export default {
   logout,
   logoutAll,
   getNewAccessToken,
+  changePassword,
 };
