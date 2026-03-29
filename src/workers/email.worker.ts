@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import { redisConnection } from "../lib/redis.js";
 import { type EmailData } from "../queues/email.queue.js";
 import prisma from "../lib/prisma.js";
+import emailService from "../services/email.service.js";
 
 const emailWorker = new Worker<EmailData>(
   "email-queue",
@@ -10,11 +11,7 @@ const emailWorker = new Worker<EmailData>(
 
     console.log("Processing email job:", job.data.to);
 
-    // this functionality is working and tested, i am commenting
-    // this for testing purposes because of so many emails being sent
-    // to testing accounts
-
-    // await emailService.sendEmail(to, subject, html);
+    await emailService.sendEmail(to, subject, html);
   },
   {
     connection: redisConnection,

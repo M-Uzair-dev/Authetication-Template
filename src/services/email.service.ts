@@ -7,6 +7,12 @@ import { dirname } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { emailQueue, type EmailData } from "../queues/email.queue.js";
 
+const RESET_TOKEN_EXPIRY = parseInt(process.env.RESET_TOKEN_EXPIRY || "");
+
+if (!RESET_TOKEN_EXPIRY)
+  throw new Error(
+    "RESET_TOKEN_EXPIRY environment variable is not set or invalid",
+  );
 const transporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
   port: Number(process.env.MAIL_PORT),
@@ -90,12 +96,32 @@ const sendResetPasswordEmail = async (
     minute: "2-digit",
   });
 
+  const expiry = formatDuration(RESET_TOKEN_EXPIRY);
+
   html = html.replace(/{{url}}/g, url);
-  html = html.replace(/{{expiry}}/g, "30 Minutes");
+  html = html.replace(/{{expiry}}/g, expiry);
   html = html.replace(/{{requestTime}}/g, requestTime);
 
   await addEmailJob({ to, subject: "Reset Your Password", html, tokenId });
 };
+
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  const parts = [];
+
+  if (days) parts.push(`${days} day${days !== 1 ? "s" : ""}`);
+  if (hours) parts.push(`${hours} hour${hours !== 1 ? "s" : ""}`);
+  if (minutes) parts.push(`${minutes} minute${minutes !== 1 ? "s" : ""}`);
+  if (secs) parts.push(`${secs} second${secs !== 1 ? "s" : ""}`);
+
+  return parts.length ? parts.join(" ") : "0 seconds";
+}
 export default {
   sendVerificationEmail,
   sendLoginAlertEmail,

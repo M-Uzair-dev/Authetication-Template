@@ -47,7 +47,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n    \"name\": \"Uzair Manan\",\r\n    \"email\": \"uzairmanantesting@gmail.com\",\r\n    \"password\": \"Uzairmanandev123!\",\r\n    \"device\": \"a07d84d7-c822-4e02-b89a-69f0dad7dace\"\r\n}",
+          "raw": "{\r\n    \"name\": \"Uzair Manan\",\r\n    \"email\": \"uzairmanan34@gmail.com\",\r\n    \"password\": \"Uzairmanandev123!\",\r\n    \"device\": \"a07d84d7-c822-4e02-b89a-69f0dad7dace\"\r\n}",
           "options": {
             "raw": {
               "language": "json"

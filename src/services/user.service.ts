@@ -1,7 +1,6 @@
 import { Prisma, type Token, type User } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { appError, errorType } from "../errors/errors.js";
-import { truncate } from "fs";
 import { redis } from "../lib/redis.js";
 
 const getUser = async (

@@ -15,7 +15,8 @@ app.use(Express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "*",
+    credentials: true,
+    origin: "http://localhost:3000",
   }),
 );
 app.use(helmet());

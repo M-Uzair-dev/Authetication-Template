@@ -31,7 +31,12 @@ export const verifyUser = async (
     const data = await tokenService.verifyUser(accessToken, refreshToken);
 
     req.userId = data.userId;
-    await redis.set(`last-active-${data.tokenId}`, `${new Date()}`);
+    await redis.set(
+      `last-active-${data.tokenId}`,
+      `${new Date()}`,
+      "EX",
+      604800, // 7 days
+    );
     next();
   } catch (e: any) {
     handleError(e, res);

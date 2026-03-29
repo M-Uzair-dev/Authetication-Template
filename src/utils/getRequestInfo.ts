@@ -85,6 +85,6 @@ export const getDevice = (req: Request): string => {
   const device = deviceData.model
     ? `${deviceData.model}`
     : `${osData.name || "Unknown OS"} (${deviceData.type || "desktop"})`;
-  console.log("Device Name: ");
+
   return device;
 };
