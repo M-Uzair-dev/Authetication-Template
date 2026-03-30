@@ -44,8 +44,9 @@
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
-    "@prisma/client": "^7.5.0",
+    "@prisma/client": "^7.6.0",
     "bcrypt": "^6.0.0",
+    "build": "^0.1.4",
     "bullmq": "^5.71.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -56,8 +57,9 @@
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.3",
+    "npm": "^11.12.1",
     "pg": "^8.20.0",
-    "prisma": "^7.5.0",
+    "run": "^1.5.0",
     "typescript": "^5.9.3",
     "ua-parser-js": "^2.0.9",
     "uuid": "^13.0.0",
@@ -77,6 +79,7 @@
     "concurrently": "^9.2.1",
     "copyfiles": "^2.4.1",
     "nodemon": "^3.1.14",
+    "prisma": "^7.6.0",
     "tsc-node": "^0.0.3"
   }
 }
