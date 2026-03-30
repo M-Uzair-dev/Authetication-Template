@@ -5,7 +5,7 @@ import { tokenCleanupQueue } from "../queues/tokenCleanup.queue.js";
 
 const cleanupWorker = new Worker(
   "tokenCleanupQueue",
-  async (job) => {
+  async () => {
     console.log("Cleaning expired tokens...");
     await prisma.token.deleteMany({
       where: {
