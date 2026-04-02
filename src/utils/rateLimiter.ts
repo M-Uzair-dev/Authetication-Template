@@ -16,6 +16,7 @@ export const generalLimiter = (data: config) => {
     next: NextFunction,
   ) {
     try {
+      if (process.env.NODE_ENV === "test") return next();
       const key = `rateLimit-${req.ip}`;
       const currentTime = Date.now();
       await redis.zadd(key, currentTime, `${currentTime}`);
